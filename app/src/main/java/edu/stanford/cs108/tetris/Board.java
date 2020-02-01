@@ -27,12 +27,10 @@ public class Board {
 	}
 
 	// TODO assumption: maxheight assumption: max y value filled in for a column, not max number of filled in rows in one column
-	// TODO check efficiency - setting ivars
-	// TODO split piece tests
-	// TODO smarter undo
+	// TODO check efficiency - The place() and clearRows() methods should update the ivars efficiently when they change the board state, clearrows in general
+	// TODO consider reimplementing a few copied tests
+	// TODO smarter undo,
 	// TODO smarter brain
-	// TODO others' tets
-	// TODO don't check input on checkdropheight
 	private void calcAndSetIVars(int maxY, boolean sanityCheck) {
 		int[] newWidths = new int[this.getHeight()];
 		int[] newHeights = new int[this.getWidth()];
@@ -175,13 +173,9 @@ public class Board {
 		int[] skirt = piece.getSkirt();
 		for (int i = 0; i < skirt.length; i++) {
 			int restingY = getColumnHeight(x + i) - skirt[i];
-//			int restingY = getColumnHeight(x + i) - skirt[i];
 			if (restingY > maxY) {
 				maxY = restingY;
 			}
-//			if (restingY + skirt[0] > maxY) {
-//				maxY = restingY + skirt[0];
-//			}
 		}
 		return maxY;
 	}
@@ -277,21 +271,8 @@ public class Board {
 	}
 
 	/**
-	 * Deletes rows that are filled all the way across, moving things above down.
-	 * Returns the number of rows cleared.
-	 */
-//	public int clearRows() {
-//		int rowsCleared = 0;
-//		// TODO clearRows
-//		this.committed = false;
-//		sanityCheck();
-//		return rowsCleared;
-//	}
-
-
-	/**
-	 * second attempt to implement clearRows, 
-	 * perform only a single pass through grid, 
+	 * second attempt to implement clearRows,
+	 * perform only a single pass through grid,
 	 * and do not utilize extra storage
 	 */
 	public int clearRows() {
@@ -348,6 +329,7 @@ public class Board {
 			}
 		}
 	}
+
 	/**
 	 * Reverts the board to its state before up to one place and one clearRows(); If
 	 * the conditions for undo() are not met, such as calling undo() twice in a row,
