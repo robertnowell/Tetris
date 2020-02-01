@@ -15,7 +15,11 @@ public class Board {
 	private int[] widths;
 	private int[] heights;
 	private boolean[][] grid;
+
 	private boolean[][] backupGrid;
+	private int[] backupWidths;
+	private int[] backupHeights;
+	private int backupMaxHeight;
 
 	private boolean DEBUG = true;
 	boolean committed;
@@ -23,66 +27,6 @@ public class Board {
 	private void copy(boolean[][] src, boolean[][] target) {
 		for (int x = 0; x < width; x++) {
 			System.arraycopy(src[x], 0, target[x], 0, height);
-		}
-	}
-
-	// TODO assumption: maxheight assumption: max y value filled in for a column, not max number of filled in rows in one column
-	// TODO check efficiency - The place() and clearRows() methods should update the ivars efficiently when they change the board state, clearrows in general
-	// TODO consider reimplementing a few copied tests
-	// TODO smarter undo,
-	// TODO smarter brain
-	private void calcAndSetIVars(int maxY, boolean sanityCheck) {
-		int[] newWidths = new int[this.getHeight()];
-		int[] newHeights = new int[this.getWidth()];
-		int newMaxHeight = 0;
-		for (int y = 0; y < this.getHeight(); y++) {
-			newWidths[y] = 0;
-		}
-		for (int x = 0; x < this.getWidth(); x++) {
-			newHeights[x] = 0;
-			for (int y = 0; y < this.getHeight(); y++) {
-				if (grid[x][y]) {
-					newWidths[y]++;
-					if (y > newHeights[x]) {
-						newHeights[x] = y;
-					}
-					if (y > newMaxHeight) {
-						newMaxHeight = y;
-					}
-				}
-			}
-		}
-		if (!sanityCheck) {
-			maxHeight = newMaxHeight;
-			widths = newWidths;
-			heights = newHeights;
-		} else {
-			checkSanity(newWidths, newHeights, newMaxHeight);
-		}
-	}
-
-	private void checkSanity(int[] newWidths, int[] newHeights, int newMaxHeight) {
-		for (int x = 0; x < this.getWidth(); x++) {
-			if (newHeights[x] != heights[x]) {
-				throw new RuntimeException(
-						"heights mismatch for x: " + x +
-								", expected: " + newHeights[x] +
-								", actual: " + heights[x]);
-			}
-
-		}
-		for (int y = 0; y < this.getHeight(); y++) {
-			if (newWidths[y] != widths[y]) {
-				throw new RuntimeException(
-						"widths mismatch for y: " + y +
-								", expected: " + newWidths[y] +
-								", actual: " + widths[y]);
-			}
-		}
-		if (newMaxHeight != getMaxHeight()) {
-			throw new RuntimeException(
-					"max height mismatch. expected: " + newMaxHeight +
-							", actual: " + maxHeight);
 		}
 	}
 
@@ -96,8 +40,11 @@ public class Board {
 		this.backupGrid = new boolean[width][height];
 		committed = true;
 		this.maxHeight = 0;
+		this.backupMaxHeight = 0;
 		this.widths = new int[height];
+		this.backupWidths = new int[height];
 		this.heights = new int[width];
+		this.backupHeights = new int[width];
 	}
 
 	/**
@@ -115,8 +62,8 @@ public class Board {
 	}
 
 	/**
-	 * Returns the max y value for a filled in cell in the board. For an empty board this
-	 * is 0.
+	 * Returns the max y value for a filled in cell in the board. For an empty board
+	 * this is 0.
 	 */
 	public int getMaxHeight() {
 		return this.maxHeight;
@@ -129,34 +76,62 @@ public class Board {
 	/**
 	 * Checks the board for internal consistency -- used for debugging.
 	 *
-	 * The Board has a lot of internal redundancy between
-	 * 		the grid,
-	 * 		the widths,
-	 * 		the heights,
-	 * 		and maxHeight.
+	 * The Board has a lot of internal redundancy between the grid, the widths, the
+	 * heights, and maxHeight.
 	 *
-	 * Write a sanityCheck() method that verifies the internal correctness of the board structures:
-	 * 		iterate over the whole grid to verify that
-	 * 			the widths and heights arrays have the right numbers,
-	 * 			and that the maxHeight is correct.
-	 *	Throw an exception if the board is not sane:
-	 *		throw new RuntimeException("description").
+	 * Write a sanityCheck() method that verifies the internal correctness of the
+	 * board structures: iterate over the whole grid to verify that the widths and
+	 * heights arrays have the right numbers, and that the maxHeight is correct.
+	 * Throw an exception if the board is not sane: throw new
+	 * RuntimeException("description").
 	 *
-	 *	Call sanityCheck() at the bottom of
-	 *		place(), clearRows() and undo().
+	 * Call sanityCheck() at the bottom of place(), clearRows() and undo().
 	 *
-	 *	A boolean static constant DEBUG in your board class should control sanityCheck().
-	 *		If DEBUG is true, sanityCheck does its checks.
-	 *		Otherwise it just returns.
-	 *		Turn your project in with DEBUG=true.
+	 * A boolean static constant DEBUG in your board class should control
+	 * sanityCheck(). If DEBUG is true, sanityCheck does its checks. Otherwise it
+	 * just returns. Turn your project in with DEBUG=true.
 	 *
-	 *	Put the sanityCheck() code in early. It will help you debug the rest of the board.
-	 *	There's one tricky case: do not call sanityCheck() in place() if the placement is bad --
-	 *		the board may not be in a sane state, but it's allowed to be not-sane in that case.
+	 * Put the sanityCheck() code in early. It will help you debug the rest of the
+	 * board. There's one tricky case: do not call sanityCheck() in place() if the
+	 * placement is bad -- the board may not be in a sane state, but it's allowed to
+	 * be not-sane in that case.
 	 */
 	public void sanityCheck() {
-		if (DEBUG) {
-			calcAndSetIVars(getHeight()-1, true);
+		if (!DEBUG) {
+			return;
+		}
+		int[] newWidths = new int[this.getHeight()];
+		int[] newHeights = new int[this.getWidth()];
+		int newMaxHeight = 0;
+		for (int x = 0; x < this.getWidth(); x++) {
+			newHeights[x] = 0;
+			for (int y = 0; y < this.getHeight(); y++) {
+				if (grid[x][y]) {
+					newWidths[y]++;
+					if (y > newHeights[x]) {
+						newHeights[x] = y;
+					}
+					if (y > newMaxHeight) {
+						newMaxHeight = y;
+					}
+				}
+			}
+		}
+		for (int x = 0; x < this.getWidth(); x++) {
+			if (newHeights[x] != heights[x]) {
+				throw new RuntimeException(
+						"heights mismatch for x: " + x + ", expected: " + newHeights[x] + ", actual: " + heights[x]);
+			}
+
+		}
+		for (int y = 0; y < this.getHeight(); y++) {
+			if (newWidths[y] != widths[y]) {
+				throw new RuntimeException(
+						"widths mismatch for y: " + y + ", expected: " + newWidths[y] + ", actual: " + widths[y]);
+			}
+		}
+		if (newMaxHeight != getMaxHeight()) {
+			throw new RuntimeException("max height mismatch. expected: " + newMaxHeight + ", actual: " + maxHeight);
 		}
 	}
 
@@ -207,7 +182,8 @@ public class Board {
 	public boolean getGrid(int x, int y) {
 		if (y < 0 || y >= height || x < 0 || x >= width) {
 			return true;
-		};
+		}
+		;
 		return this.grid[x][y];
 	}
 
@@ -222,13 +198,9 @@ public class Board {
 	 * PLACE_ROW_FILLED for a regular placement that causes at least one row to be
 	 * filled.
 	 *
-	 * must start in committed state
-	 * must end in uncommitted state
-	 update
-	 private int maxHeight;
-	 private int[] widths;
-	 private int[] heights;
-	 private boolean[][] grid;
+	 * must start in committed state must end in uncommitted state update private
+	 * int maxHeight; private int[] widths; private int[] heights; private
+	 * boolean[][] grid;
 	 * <p>
 	 * Error cases: A placement may fail in two ways. First, if part of the piece
 	 * may falls out of bounds of the board, PLACE_OUT_BOUNDS is returned. Or the
@@ -271,29 +243,46 @@ public class Board {
 	}
 
 	/**
-	 * second attempt to implement clearRows,
-	 * perform only a single pass through grid,
-	 * and do not utilize extra storage
+	 * second attempt to implement clearRows, perform only a single pass through
+	 * grid, and do not utilize extra storage
 	 */
 	public int clearRows() {
 		this.committed = false;
 		// find the "row" above which we want all false values
+		int initialMaxHeight = this.getMaxHeight();
 		int index = copyLevels();
-		clearRemainingLevels(index);
-		calcAndSetIVars(index-1, false);
+		clearRemainingLevels(index, initialMaxHeight);
+		setHeights(index - 1);
 		sanityCheck();
-		return height-index;
+		return initialMaxHeight + 1 - index;
+	}
+
+	private void setHeights(int maxIndex) {
+		maxHeight = 0;
+		heights = new int[this.getWidth()];
+		for (int y = maxIndex; y > 0; y--) {
+			for (int x = 0; x < getWidth(); x++) {
+				if (this.getGrid(x, y)) {
+					if (y > heights[x]) {
+						heights[x] = y;
+					}
+					if (y > maxHeight) {
+						maxHeight = y;
+					}
+				}
+			}
+		}
 	}
 
 	private int copyLevels() {
 		int clearIndex = 0;
 		int copyIndex = findNextLevelToCopy(clearIndex);
-		while (copyIndex < this.getHeight()) {
-			if (clearIndex!= copyIndex) {
+		while (copyIndex <= this.getMaxHeight()) {
+			if (clearIndex != copyIndex) {
 				copyLevel(clearIndex, copyIndex);
 			}
 			clearIndex++;
-			copyIndex = findNextLevelToCopy(copyIndex+1);
+			copyIndex = findNextLevelToCopy(copyIndex + 1);
 		}
 		return clearIndex;
 	}
@@ -302,10 +291,11 @@ public class Board {
 		for (int i = 0; i < this.getWidth(); i++) {
 			grid[i][clearIndex] = grid[i][copyIndex];
 		}
+		widths[clearIndex] = widths[copyIndex];
 	}
 
 	private int findNextLevelToCopy(int copyIndex) {
-		for (int i = copyIndex; i < this.getHeight(); i++) {
+		for (int i = copyIndex; i <= this.getMaxHeight(); i++) {
 			if (shouldKeepLevel(i)) {
 				return i;
 			}
@@ -322,12 +312,27 @@ public class Board {
 		return false;
 	}
 
-	private void clearRemainingLevels(int clearIndex) {
-		for (int j = clearIndex; j < this.getHeight(); j++) {
+	private void clearRemainingLevels(int startIndex, int maxIndex) {
+		for (int j = startIndex; j <= maxIndex; j++) {
 			for (int i = 0; i < this.getWidth(); i++) {
 				grid[i][j] = false;
 			}
+			widths[j] = 0;
 		}
+	}
+
+	private void backup() {
+		copy(grid, backupGrid);
+		System.arraycopy(widths, 0, backupWidths, 0, this.getHeight());
+		System.arraycopy(heights, 0, backupHeights, 0, this.getWidth());
+		backupMaxHeight = this.getMaxHeight();
+	}
+
+	private void restoreBackup() {
+		copy(backupGrid, grid);
+		System.arraycopy(backupWidths, 0, widths, 0, this.getHeight());
+		System.arraycopy(backupHeights, 0, heights, 0, this.getWidth());
+		this.setMaxHeight(backupMaxHeight);
 	}
 
 	/**
@@ -336,8 +341,7 @@ public class Board {
 	 * then the second undo() does nothing. See the overview docs.
 	 */
 	public void undo() {
-		copy(backupGrid, grid);
-		calcAndSetIVars(height-1, false);
+		restoreBackup();
 		sanityCheck();
 		committed = true;
 	}
@@ -346,7 +350,7 @@ public class Board {
 	 * Puts the board in the committed state.
 	 */
 	public void commit() {
-		copy(grid, backupGrid);
+		backup();
 		committed = true;
 	}
 
